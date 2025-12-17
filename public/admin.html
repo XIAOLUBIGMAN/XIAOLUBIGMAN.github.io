@@ -8,77 +8,172 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="admin-container">
-        <header style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #333;"><i class="fas fa-cog"></i> 导航管理后台</h1>
-            <p style="color: #666;">添加、编辑或删除导航项</p>
-        </header>
-        
-        <div id="statusMessage" class="status-message"></div>
-        
-        <!-- 添加/编辑表单 -->
-        <div class="form-section">
-            <h2 style="margin-bottom: 20px; color: #333;">
-                <i class="fas fa-plus-circle"></i> 
-                <span id="formTitle">添加新导航项</span>
-            </h2>
+    <div id="app" style="display: none;">
+        <div class="admin-container">
+            <div class="admin-header">
+                <h1><i class="fas fa-cog"></i> 导航管理后台</h1>
+                <button class="logout-btn" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> 退出登录
+                </button>
+            </div>
             
-            <form id="navForm">
-                <input type="hidden" id="itemId" value="">
-                
-                <div class="form-group">
-                    <label for="name">网站名称</label>
-                    <input type="text" id="name" required placeholder="例如：Google">
-                </div>
-                
-                <div class="form-group">
-                    <label for="url">网站地址</label>
-                    <input type="url" id="url" required placeholder="https://example.com">
-                </div>
-                
-                <div class="form-group">
-                    <label for="icon">图标（可选）</label>
-                    <input type="text" id="icon" placeholder="例如：🔍 或 🐙">
-                    <small style="color: #666;">可以使用表情符号或图标名称</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="category">分类</label>
-                    <input type="text" id="category" required placeholder="例如：搜索、开发、学习">
-                </div>
-                
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn">
-                        <i class="fas fa-save"></i> 
-                        <span id="submitBtnText">添加导航项</span>
-                    </button>
-                    <button type="button" class="btn" onclick="resetForm()" style="background: #6c757d;">
-                        <i class="fas fa-redo"></i> 重置
-                    </button>
-                </div>
-            </form>
-        </div>
-        
-        <!-- 现有项目列表 -->
-        <div class="item-list">
-            <h2 style="margin: 30px 0 20px; color: #333;">
-                <i class="fas fa-list"></i> 现有导航项
-            </h2>
+            <p style="color: #666; margin-bottom: 30px;">管理你的导航项，添加、编辑或删除。</p>
             
-            <div id="itemList">
-                <!-- 项目列表将通过JS动态生成 -->
+            <div id="statusMessage" class="status-message"></div>
+            
+            <!-- 添加/编辑表单 -->
+            <div class="form-section">
+                <h2 style="margin-bottom: 20px; color: #333;">
+                    <i class="fas fa-plus-circle"></i> 
+                    <span id="formTitle">添加新导航项</span>
+                </h2>
+                
+                <form id="navForm">
+                    <input type="hidden" id="itemId" value="">
+                    
+                    <div class="form-group">
+                        <label for="name">网站名称</label>
+                        <input type="text" id="name" required placeholder="例如：Google">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="url">网站地址</label>
+                        <input type="url" id="url" required placeholder="https://example.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="icon">图标（可选）</label>
+                        <input type="text" id="icon" placeholder="例如：🔍 或 🐙">
+                        <small style="color: #666;">可以使用表情符号</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category">分类</label>
+                        <input type="text" id="category" required placeholder="例如：搜索、开发、学习">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn">
+                            <i class="fas fa-save"></i> 
+                            <span id="submitBtnText">添加导航项</span>
+                        </button>
+                        <button type="button" class="btn" onclick="resetForm()" style="background: #6c757d;">
+                            <i class="fas fa-redo"></i> 重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 现有项目列表 -->
+            <div class="item-list">
+                <h2 style="margin: 30px 0 20px; color: #333;">
+                    <i class="fas fa-list"></i> 现有导航项
+                </h2>
+                
+                <div id="itemList">
+                    <!-- 项目列表将通过JS动态生成 -->
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
+                <a href="index.html" class="btn" style="background: #333;">
+                    <i class="fas fa-home"></i> 返回导航首页
+                </a>
             </div>
         </div>
-        
-        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
-            <a href="index.html" class="btn" style="background: #333;">
-                <i class="fas fa-home"></i> 返回导航首页
-            </a>
-        </div>
+    </div>
+    
+    <div id="loginPrompt" class="protected-message">
+        <h2><i class="fas fa-lock"></i> 需要登录</h2>
+        <p>请先登录以访问管理后台。</p>
+        <a href="login.html" class="btn">
+            <i class="fas fa-sign-in-alt"></i> 前往登录
+        </a>
     </div>
     
     <script>
         let currentEditId = null;
+        let sessionId = null;
+        
+        // 获取会话ID
+        function getSessionId() {
+            if (!sessionId) {
+                sessionId = localStorage.getItem('sessionId');
+            }
+            return sessionId;
+        }
+        
+        // 带认证的fetch请求
+        async function authFetch(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'x-session-id': getSessionId(),
+                ...options.headers
+            };
+            
+            const response = await fetch(url, {
+                ...options,
+                headers
+            });
+            
+            if (response.status === 401) {
+                // 未授权，跳转到登录页
+                localStorage.removeItem('sessionId');
+                window.location.href = 'login.html';
+                throw new Error('未授权');
+            }
+            
+            return response;
+        }
+        
+        // 检查登录状态
+        async function checkAuth() {
+            const sessionId = getSessionId();
+            if (!sessionId) {
+                return false;
+            }
+            
+            try {
+                const response = await fetch('/api/check-auth', {
+                    headers: {
+                        'x-session-id': sessionId
+                    }
+                });
+                
+                const data = await response.json();
+                return data.loggedIn;
+            } catch (error) {
+                return false;
+            }
+        }
+        
+        // 初始化页面
+        async function init() {
+            const isLoggedIn = await checkAuth();
+            
+            if (isLoggedIn) {
+                document.getElementById('app').style.display = 'block';
+                document.getElementById('loginPrompt').style.display = 'none';
+                loadItems();
+            } else {
+                document.getElementById('app').style.display = 'none';
+                document.getElementById('loginPrompt').style.display = 'block';
+            }
+        }
+        
+        // 登出
+        async function logout() {
+            try {
+                await authFetch('/api/logout', {
+                    method: 'POST'
+                });
+            } catch (error) {
+                // 忽略错误
+            }
+            
+            localStorage.removeItem('sessionId');
+            window.location.href = 'login.html';
+        }
         
         // 显示状态消息
         function showMessage(message, type = 'success') {
@@ -94,6 +189,7 @@
         // 加载导航项列表
         async function loadItems() {
             try {
+                // 这里使用普通fetch，因为获取数据不需要认证
                 const response = await fetch('/api/navigation');
                 const data = await response.json();
                 renderItemList(data);
@@ -165,7 +261,7 @@
             if (!confirm('确定要删除这个导航项吗？')) return;
             
             try {
-                const response = await fetch(`/api/navigation/${id}`, {
+                const response = await authFetch(`/api/navigation/${id}`, {
                     method: 'DELETE'
                 });
                 
@@ -205,20 +301,14 @@
                 
                 if (currentEditId) {
                     // 更新现有项
-                    response = await fetch(`/api/navigation/${currentEditId}`, {
+                    response = await authFetch(`/api/navigation/${currentEditId}`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify(itemData)
                     });
                 } else {
                     // 添加新项
-                    response = await fetch('/api/navigation', {
+                    response = await authFetch('/api/navigation', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
                         body: JSON.stringify(itemData)
                     });
                 }
@@ -235,8 +325,8 @@
             }
         });
         
-        // 页面加载时获取数据
-        document.addEventListener('DOMContentLoaded', loadItems);
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>

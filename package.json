@@ -4,15 +4,16 @@
   "description": "简单的导航页面系统",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5"
+    "express": "^4.22.1"
   },
-  "engines": {
-    "node": ">=14"
-  }
+  "keywords": [
+    "navigation",
+    "bookmark",
+    "dashboard"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }

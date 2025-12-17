@@ -1,35 +1,67 @@
 const express = require('express');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
-const bodyParser = require('body-parser');
-const cors = require('cors');
+const config = require('./config.js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || config.port;
 
-// 确保数据文件存在
-const DATA_DIR = path.join(process.cwd(), '.data');
-const DATA_FILE = path.join(DATA_DIR, 'navigation.json');
+// 内存中的会话存储（简单实现）
+const sessions = {};
 
-// 中间件
-app.use(cors());
-app.use(bodyParser.json());
+// 简单的会话管理
+function createSession() {
+  const sessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  sessions[sessionId] = {
+    loggedIn: true,
+    createdAt: Date.now()
+  };
+  
+  // 清理过期会话
+  cleanupSessions();
+  
+  return sessionId;
+}
 
-// 静态文件服务（Vercel 可能会自动处理）
-app.use(express.static('public'));
-
-// 确保数据目录存在
-async function ensureDataDir() {
-  try {
-    await fs.access(DATA_DIR);
-  } catch {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+function validateSession(sessionId) {
+  const session = sessions[sessionId];
+  if (!session) return false;
+  
+  // 检查是否过期（30分钟）
+  const isExpired = Date.now() - session.createdAt > config.sessionTimeout * 60 * 1000;
+  if (isExpired) {
+    delete sessions[sessionId];
+    return false;
   }
   
-  // 检查数据文件是否存在，如果不存在则创建默认数据
-  try {
-    await fs.access(DATA_FILE);
-  } catch {
+  return session.loggedIn;
+}
+
+function cleanupSessions() {
+  const now = Date.now();
+  for (const [sessionId, session] of Object.entries(sessions)) {
+    if (now - session.createdAt > config.sessionTimeout * 60 * 1000) {
+      delete sessions[sessionId];
+    }
+  }
+}
+
+// 中间件
+app.use(express.json()); // 内置的JSON解析，无需body-parser
+app.use(express.static('public')); // 静态文件服务
+
+// 文件路径
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'navigation.json');
+
+// 确保数据目录存在
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  
+  // 如果数据文件不存在，创建默认数据
+  if (!fs.existsSync(DATA_FILE)) {
     const defaultData = [
       {
         "id": 1,
@@ -53,14 +85,14 @@ async function ensureDataDir() {
         "category": "学习"
       }
     ];
-    await fs.writeFile(DATA_FILE, JSON.stringify(defaultData, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify(defaultData, null, 2));
   }
 }
 
 // 读取导航数据
-async function readNavigationData() {
+function readNavigationData() {
   try {
-    const data = await fs.readFile(DATA_FILE, 'utf8');
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
     return JSON.parse(data);
   } catch (error) {
     return [];
@@ -68,45 +100,99 @@ async function readNavigationData() {
 }
 
 // 保存导航数据
-async function saveNavigationData(data) {
-  await ensureDataDir();
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+function saveNavigationData(data) {
+  ensureDataDir();
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// API: 获取所有导航项
-app.get('/api/navigation', async (req, res) => {
+// 认证中间件
+function requireAuth(req, res, next) {
+  const sessionId = req.headers['x-session-id'];
+  
+  if (validateSession(sessionId)) {
+    next();
+  } else {
+    res.status(401).json({ error: '未授权，请先登录' });
+  }
+}
+
+// 登录API
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  
+  if (password === config.adminPassword) {
+    const sessionId = createSession();
+    res.json({ 
+      success: true, 
+      sessionId,
+      message: '登录成功'
+    });
+  } else {
+    res.status(401).json({ 
+      success: false, 
+      message: '密码错误' 
+    });
+  }
+});
+
+// 登出API
+app.post('/api/logout', (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  if (sessionId && sessions[sessionId]) {
+    delete sessions[sessionId];
+  }
+  res.json({ success: true, message: '已登出' });
+});
+
+// 检查登录状态
+app.get('/api/check-auth', (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  const isValid = validateSession(sessionId);
+  res.json({ loggedIn: isValid });
+});
+
+// API: 获取所有导航项（公开）
+app.get('/api/navigation', (req, res) => {
   try {
-    const data = await readNavigationData();
+    const data = readNavigationData();
     res.json(data);
   } catch (error) {
-    console.error('读取数据失败:', error);
     res.status(500).json({ error: '读取数据失败' });
   }
 });
 
-// API: 添加导航项
-app.post('/api/navigation', async (req, res) => {
+// API: 获取分类列表（公开）
+app.get('/api/categories', (req, res) => {
   try {
-    const data = await readNavigationData();
+    const data = readNavigationData();
+    const categories = [...new Set(data.map(item => item.category))];
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ error: '读取数据失败' });
+  }
+});
+
+// 以下API需要认证
+app.post('/api/navigation', requireAuth, (req, res) => {
+  try {
+    const data = readNavigationData();
     const newItem = {
       id: Date.now(),
       ...req.body
     };
     
     data.push(newItem);
-    await saveNavigationData(data);
+    saveNavigationData(data);
     res.status(201).json(newItem);
   } catch (error) {
-    console.error('保存数据失败:', error);
     res.status(500).json({ error: '保存数据失败' });
   }
 });
 
-// API: 更新导航项
-app.put('/api/navigation/:id', async (req, res) => {
+app.put('/api/navigation/:id', requireAuth, (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const data = await readNavigationData();
+    const data = readNavigationData();
     const index = data.findIndex(item => item.id === id);
     
     if (index === -1) {
@@ -114,19 +200,17 @@ app.put('/api/navigation/:id', async (req, res) => {
     }
     
     data[index] = { ...data[index], ...req.body };
-    await saveNavigationData(data);
+    saveNavigationData(data);
     res.json(data[index]);
   } catch (error) {
-    console.error('更新数据失败:', error);
     res.status(500).json({ error: '更新数据失败' });
   }
 });
 
-// API: 删除导航项
-app.delete('/api/navigation/:id', async (req, res) => {
+app.delete('/api/navigation/:id', requireAuth, (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    let data = await readNavigationData();
+    let data = readNavigationData();
     const initialLength = data.length;
     
     data = data.filter(item => item.id !== id);
@@ -135,31 +219,29 @@ app.delete('/api/navigation/:id', async (req, res) => {
       return res.status(404).json({ error: '项目不存在' });
     }
     
-    await saveNavigationData(data);
+    saveNavigationData(data);
     res.json({ success: true });
   } catch (error) {
-    console.error('删除数据失败:', error);
     res.status(500).json({ error: '删除数据失败' });
   }
 });
 
-// 处理所有其他路由，返回前端页面
-app.get('*', (req, res) => {
+// 默认路由 - 首页
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 初始化并启动服务器
-async function startServer() {
-  await ensureDataDir();
+// 启动服务器
+function startServer() {
+  ensureDataDir();
   
-  if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-      console.log(`服务器运行在 http://localhost:${PORT}`);
-    });
-  }
+  app.listen(PORT, () => {
+    console.log(`导航系统已启动`);
+    console.log(`首页: http://localhost:${PORT}`);
+    console.log(`后台登录: http://localhost:${PORT}/login.html`);
+    console.log(`后台密码: ${config.adminPassword}`);
+    console.log(`数据文件: ${DATA_FILE}`);
+  });
 }
 
 startServer();
-
-// 导出 app 供 Vercel 使用
-module.exports = app;

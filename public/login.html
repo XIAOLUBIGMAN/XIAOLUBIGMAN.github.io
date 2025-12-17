@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录后台管理</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="login-container">
+        <h1><i class="fas fa-lock"></i> 后台登录</h1>
+        <p style="color: #666; margin-bottom: 30px;">请输入管理员密码以进入后台</p>
+        
+        <div id="errorMessage" class="error-message"></div>
+        
+        <form id="loginForm" class="login-form">
+            <div class="form-group">
+                <label for="password">管理员密码</label>
+                <input type="password" id="password" required placeholder="请输入密码">
+            </div>
+            
+            <button type="submit" class="login-btn">
+                <i class="fas fa-sign-in-alt"></i> 登录
+            </button>
+        </form>
+        
+        <div class="login-links">
+            <p>忘记密码？请查看服务器配置文件中的密码设置。</p>
+            <p><a href="index.html"><i class="fas fa-home"></i> 返回导航首页</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // 检查是否已登录
+        async function checkLogin() {
+            const sessionId = localStorage.getItem('sessionId');
+            if (!sessionId) return false;
+            
+            try {
+                const response = await fetch('/api/check-auth', {
+                    headers: {
+                        'x-session-id': sessionId
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.loggedIn) {
+                    // 已登录，跳转到后台
+                    window.location.href = 'admin.html';
+                    return true;
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+            }
+            
+            return false;
+        }
+        
+        // 显示错误消息
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+        
+        // 隐藏错误消息
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('show');
+        }
+        
+        // 登录处理
+        async function handleLogin(event) {
+            event.preventDefault();
+            hideError();
+            
+            const password = document.getElementById('password').value;
+            
+            if (!password) {
+                showError('请输入密码');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 保存会话ID到本地存储
+                    localStorage.setItem('sessionId', data.sessionId);
+                    
+                    // 跳转到后台
+                    window.location.href = 'admin.html';
+                } else {
+                    showError(data.message || '登录失败');
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                showError('网络错误，请稍后重试');
+            }
+        }
+        
+        // 页面加载时检查登录状态
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isLoggedIn = await checkLogin();
+            if (isLoggedIn) {
+                // 已登录，跳转到后台
+                window.location.href = 'admin.html';
+            }
+        });
+        
+        // 表单提交事件
+        document.getElementById('loginForm').addEventListener('submit', handleLogin);
+        
+        // 回车键提交表单
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleLogin(e);
+            }
+        });
+    </script>
+</body>
+</html>
