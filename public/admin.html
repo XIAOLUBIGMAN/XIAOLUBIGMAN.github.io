@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导航管理后台</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <header style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #333;"><i class="fas fa-cog"></i> 导航管理后台</h1>
+            <p style="color: #666;">添加、编辑或删除导航项</p>
+        </header>
+        
+        <div id="statusMessage" class="status-message"></div>
+        
+        <!-- 添加/编辑表单 -->
+        <div class="form-section">
+            <h2 style="margin-bottom: 20px; color: #333;">
+                <i class="fas fa-plus-circle"></i> 
+                <span id="formTitle">添加新导航项</span>
+            </h2>
+            
+            <form id="navForm">
+                <input type="hidden" id="itemId" value="">
+                
+                <div class="form-group">
+                    <label for="name">网站名称</label>
+                    <input type="text" id="name" required placeholder="例如：Google">
+                </div>
+                
+                <div class="form-group">
+                    <label for="url">网站地址</label>
+                    <input type="url" id="url" required placeholder="https://example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="icon">图标（可选）</label>
+                    <input type="text" id="icon" placeholder="例如：🔍 或 🐙">
+                    <small style="color: #666;">可以使用表情符号或图标名称</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="category">分类</label>
+                    <input type="text" id="category" required placeholder="例如：搜索、开发、学习">
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn">
+                        <i class="fas fa-save"></i> 
+                        <span id="submitBtnText">添加导航项</span>
+                    </button>
+                    <button type="button" class="btn" onclick="resetForm()" style="background: #6c757d;">
+                        <i class="fas fa-redo"></i> 重置
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 现有项目列表 -->
+        <div class="item-list">
+            <h2 style="margin: 30px 0 20px; color: #333;">
+                <i class="fas fa-list"></i> 现有导航项
+            </h2>
+            
+            <div id="itemList">
+                <!-- 项目列表将通过JS动态生成 -->
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
+            <a href="index.html" class="btn" style="background: #333;">
+                <i class="fas fa-home"></i> 返回导航首页
+            </a>
+        </div>
+    </div>
+    
+    <script>
+        let currentEditId = null;
+        
+        // 显示状态消息
+        function showMessage(message, type = 'success') {
+            const messageEl = document.getElementById('statusMessage');
+            messageEl.textContent = message;
+            messageEl.className = `status-message ${type}`;
+            
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 加载导航项列表
+        async function loadItems() {
+            try {
+                const response = await fetch('/api/navigation');
+                const data = await response.json();
+                renderItemList(data);
+            } catch (error) {
+                showMessage('加载数据失败', 'error');
+            }
+        }
+        
+        // 渲染项目列表
+        function renderItemList(items) {
+            const container = document.getElementById('itemList');
+            
+            if (items.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666;">暂无导航项，请添加。</p>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'item-card';
+                itemEl.innerHTML = `
+                    <div class="item-info">
+                        <h3>${item.icon || '🔗'} ${item.name}</h3>
+                        <p><i class="fas fa-link"></i> ${item.url}</p>
+                        <p><i class="fas fa-tag"></i> ${item.category}</p>
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn" onclick="editItem(${item.id})">
+                            <i class="fas fa-edit"></i> 编辑
+                        </button>
+                        <button class="btn btn-delete" onclick="deleteItem(${item.id})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </div>
+                `;
+                container.appendChild(itemEl);
+            });
+        }
+        
+        // 编辑项目
+        async function editItem(id) {
+            try {
+                const response = await fetch('/api/navigation');
+                const items = await response.json();
+                const item = items.find(i => i.id === id);
+                
+                if (item) {
+                    document.getElementById('itemId').value = item.id;
+                    document.getElementById('name').value = item.name;
+                    document.getElementById('url').value = item.url;
+                    document.getElementById('icon').value = item.icon || '';
+                    document.getElementById('category').value = item.category;
+                    
+                    document.getElementById('formTitle').textContent = '编辑导航项';
+                    document.getElementById('submitBtnText').textContent = '保存修改';
+                    
+                    currentEditId = id;
+                    document.getElementById('name').focus();
+                }
+            } catch (error) {
+                showMessage('获取项目数据失败', 'error');
+            }
+        }
+        
+        // 删除项目
+        async function deleteItem(id) {
+            if (!confirm('确定要删除这个导航项吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/navigation/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    showMessage('删除成功');
+                    loadItems();
+                } else {
+                    showMessage('删除失败', 'error');
+                }
+            } catch (error) {
+                showMessage('删除失败', 'error');
+            }
+        }
+        
+        // 重置表单
+        function resetForm() {
+            document.getElementById('navForm').reset();
+            document.getElementById('itemId').value = '';
+            document.getElementById('formTitle').textContent = '添加新导航项';
+            document.getElementById('submitBtnText').textContent = '添加导航项';
+            currentEditId = null;
+        }
+        
+        // 表单提交处理
+        document.getElementById('navForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const itemData = {
+                name: document.getElementById('name').value,
+                url: document.getElementById('url').value,
+                icon: document.getElementById('icon').value,
+                category: document.getElementById('category').value
+            };
+            
+            try {
+                let response;
+                
+                if (currentEditId) {
+                    // 更新现有项
+                    response = await fetch(`/api/navigation/${currentEditId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(itemData)
+                    });
+                } else {
+                    // 添加新项
+                    response = await fetch('/api/navigation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(itemData)
+                    });
+                }
+                
+                if (response.ok) {
+                    showMessage(currentEditId ? '更新成功' : '添加成功');
+                    resetForm();
+                    loadItems();
+                } else {
+                    showMessage('操作失败', 'error');
+                }
+            } catch (error) {
+                showMessage('操作失败', 'error');
+            }
+        });
+        
+        // 页面加载时获取数据
+        document.addEventListener('DOMContentLoaded', loadItems);
+    </script>
+</body>
+</html>

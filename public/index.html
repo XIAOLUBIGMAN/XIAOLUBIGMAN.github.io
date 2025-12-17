@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的导航页</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-compass"></i> 我的导航站</h1>
+            <p>快速访问常用网站</p>
+        </header>
+        
+        <div class="category-filter" id="categoryFilter">
+            <button class="filter-btn active" data-category="all">全部</button>
+            <!-- 分类按钮将通过JS动态生成 -->
+        </div>
+        
+        <div class="nav-grid" id="navGrid">
+            <!-- 导航项将通过JS动态生成 -->
+        </div>
+        
+        <footer style="text-align: center; color: white; margin-top: 50px; opacity: 0.8;">
+            <p>共 <span id="itemCount">0</span> 个导航项 | 
+               <a href="admin.html" style="color: white; text-decoration: underline;">管理后台</a>
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        // 从后端获取数据
+        async function loadNavigation() {
+            try {
+                const response = await fetch('/api/navigation');
+                const data = await response.json();
+                renderNavigation(data);
+                updateCategoryFilter(data);
+            } catch (error) {
+                console.error('加载导航数据失败:', error);
+            }
+        }
+        
+        // 更新分类筛选器
+        function updateCategoryFilter(data) {
+            const categories = [...new Set(data.map(item => item.category))];
+            const filterContainer = document.getElementById('categoryFilter');
+            
+            // 清空现有按钮（保留"全部"按钮）
+            const allBtn = filterContainer.querySelector('[data-category="all"]');
+            filterContainer.innerHTML = '';
+            filterContainer.appendChild(allBtn);
+            
+            // 添加分类按钮
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'filter-btn';
+                button.dataset.category = category;
+                button.textContent = category;
+                button.onclick = () => filterByCategory(category);
+                filterContainer.appendChild(button);
+            });
+        }
+        
+        // 筛选分类
+        function filterByCategory(category) {
+            // 更新按钮状态
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // 筛选显示
+            const allItems = document.querySelectorAll('.nav-item');
+            allItems.forEach(item => {
+                if (category === 'all' || item.dataset.category === category) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // 更新计数
+            const visibleCount = Array.from(allItems).filter(item => 
+                item.style.display !== 'none'
+            ).length;
+            document.getElementById('itemCount').textContent = visibleCount;
+        }
+        
+        // 渲染导航项
+        function renderNavigation(data) {
+            const container = document.getElementById('navGrid');
+            container.innerHTML = '';
+            
+            data.forEach(item => {
+                const navItem = document.createElement('a');
+                navItem.href = item.url;
+                navItem.target = '_blank';
+                navItem.className = 'nav-item';
+                navItem.dataset.category = item.category;
+                
+                navItem.innerHTML = `
+                    <div class="icon">${item.icon || '🔗'}</div>
+                    <div class="name">${item.name}</div>
+                    <div class="category">${item.category}</div>
+                `;
+                
+                container.appendChild(navItem);
+            });
+            
+            // 更新总数
+            document.getElementById('itemCount').textContent = data.length;
+        }
+        
+        // 页面加载时获取数据
+        document.addEventListener('DOMContentLoaded', loadNavigation);
+        
+        // 点击"全部"按钮
+        document.querySelector('[data-category="all"]').onclick = () => {
+            filterByCategory('all');
+        };
+    </script>
+</body>
+</html>
